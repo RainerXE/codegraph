@@ -21,7 +21,8 @@
 #      Linux run (expected-linux.tsv, next to this script)
 #   6. indexes your own projects, if you pass any
 #
-# Needs: git, node (>=22.5, <25), npm, internet access. Works on macOS and
+# Needs: git, node, npm, internet access. (If your node is outside >=22.5 <25 the
+# script fetches a private Node 22 for the run, leaving your install alone.) Works on macOS and
 # Linux. Everything lives under $WORKDIR; nothing is installed globally and
 # nothing is pushed anywhere. Results are also saved to $WORKDIR/report.txt:
 # paste that file back.
@@ -57,10 +58,24 @@ sha256() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d
 elapsed() { echo $(( $(date +%s) - $1 )); }
 
 for t in git node npm; do command -v "$t" >/dev/null 2>&1 || die "missing required tool: $t"; done
-NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
-NODE_MINOR="$(node -p 'process.versions.node.split(".")[1]')"
-{ [ "$NODE_MAJOR" -gt 22 ] || { [ "$NODE_MAJOR" -eq 22 ] && [ "$NODE_MINOR" -ge 5 ]; }; } && [ "$NODE_MAJOR" -lt 25 ] \
-  || die "need Node >=22.5 and <25 (found $(node --version))"
+node_ok() { # Node >=22.5 and <25
+  local major minor
+  major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null)" || return 1
+  minor="$(node -p 'process.versions.node.split(".")[1]' 2>/dev/null)" || return 1
+  { [ "$major" -gt 22 ] || { [ "$major" -eq 22 ] && [ "$minor" -ge 5 ]; }; } && [ "$major" -lt 25 ]
+}
+if [ -n "${FORCE_NODE_BOOTSTRAP:-}" ] || ! node_ok; then
+  # CodeGraph supports Node >=22.5 <25. Rather than touch your install (nvm, brew, ...),
+  # fetch a private Node 22 into the work folder and use it for this run only.
+  say_early() { printf '%s\n' "$*"; }
+  say_early "Your node is $(node --version) — CodeGraph needs >=22.5 <25. Fetching a private Node 22 into $WORKDIR/node22 (your install is untouched) ..."
+  mkdir -p "$WORKDIR/node22"
+  ( cd "$WORKDIR/node22" && npm init -y >/dev/null 2>&1 && npm install node@22 >"$WORKDIR/node22-install.log" 2>&1 ) \
+    || { tail -10 "$WORKDIR/node22-install.log"; echo "FATAL: could not fetch Node 22 (log: $WORKDIR/node22-install.log). Install Node 22 yourself (e.g. 'nvm install 22' or 'brew install node@22') and re-run."; exit 1; }
+  export PATH="$WORKDIR/node22/node_modules/node/bin:$PATH"
+  hash -r
+  node_ok || { echo "FATAL: private Node 22 did not take effect (node is $(node --version))"; exit 1; }
+fi
 
 say "== environment"
 say "uname:  $(uname -srm)"
