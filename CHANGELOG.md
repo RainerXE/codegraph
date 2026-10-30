@@ -14,7 +14,7 @@ and adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New Features
 
-- CodeGraph now indexes **Odin** (`.odin`) — procedures with their calling conventions and `@(...)` attributes, procedure groups linked to their overloads, structs, enums, unions, bit fields, `distinct` and proc-type aliases, constants, imports, `foreign` blocks, `when` blocks, and call edges that keep their package qualifier so `fmt.println` never links to a procedure of your own. An Odin package is a directory, so imports are recorded as symbols but deliberately left unlinked rather than guessed at a file. The vendored `tree-sitter-odin` v1.3.0 grammar has known gaps that leave an ERROR node in some files — most often a trailing-backslash line continuation in a CRLF working tree, which usually costs nothing but occasionally costs a file's declarations; `docs/grammars/tree-sitter-odin.md` records the measured parse health on four Odin repositories. Thanks @RainerXE, who first proposed Odin support. (#648, #1000)
+- CodeGraph now indexes **Odin** (`.odin`): procedures and procedure groups, structs, enums, unions, bit fields, constants, imports and the calls between them. A call like `fmt.println` is kept apart from a procedure of your own, because an Odin package is a directory. A few newer Odin constructs, such as fixed-capacity `[dynamic; N]T` arrays, are not yet understood by the grammar and can cost a file some of its symbols. Thanks @ivandrenjanin, who built this, and @RainerXE, who first proposed it. (#1523, #1000)
 
 ### Security
 

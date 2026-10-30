@@ -6,14 +6,20 @@
 `e8adc739b78409a99f8c31313f0bb54cc538cf73`, from the tag's **checked-in**
 `src/parser.c` — no `tree-sitter generate`, no patch.
 
+**The wasm is not committed with this change.** It is built from the pinned
+source below (see [Rebuild](#rebuild)) and added to `src/extraction/wasm/`
+by whoever builds it. The wasm rows in the table describe the reference build
+this grammar was developed and measured with; the source rows are what a
+rebuild must start from.
+
 | | |
 | --- | --- |
-| wasm sha256 | `99fd3217b82b1ba4f438120591ec2ed24108f782ab693d69b330d753188632fb` |
-| wasm size | 2,218,713 bytes |
+| reference wasm sha256 | `99fd3217b82b1ba4f438120591ec2ed24108f782ab693d69b330d753188632fb` |
+| reference wasm size | 2,218,713 bytes |
 | ABI | 14 |
 | `src/parser.c` sha256 | `8f672d8d022d70eeae822796924f2e45e692d6b2acd2ddc79bfeb5f696fa24f0` |
 | `src/scanner.c` sha256 | `e342d07d3e35c3865a6bda0587f3a3b46a7b2411fd93cbee01dc40ab7631c93b` |
-| builder | tree-sitter-cli 0.26.11 (`build --wasm`) |
+| reference builder | tree-sitter-cli 0.26.11 (`build --wasm`), Windows |
 
 ABI 14 rather than 15 because the tag's checked-in `parser.c` predates the
 ABI-15 generator; regenerating would diverge the tables from the tag, which is
@@ -193,10 +199,32 @@ anyway — it is the house rule for every other vendored grammar here, and it
 does not require trusting the publisher's build machine (the package carries a
 registry signature but no build attestation).
 
+### Reproduced on Linux
+
+An independent rebuild from the tag, with nothing else changed:
+
+| | |
+| --- | --- |
+| host | Linux x86_64 |
+| builder | tree-sitter-cli 0.26.11 (`npm install tree-sitter-cli@0.26.11`; it downloads wasi-sdk 29 itself, no Docker) |
+| `src/parser.c` sha256 | `8f672d8d…` — matches the table above |
+| `src/scanner.c` sha256 | `e342d07d…` — matches the table above |
+| wasm size | 2,218,722 bytes (reference build: 2,218,713) |
+| wasm sha256 | `68522c0da7ef9b42974f7b5469003045d0866f59fe81ac4acb1cd17b28a4ab1d` |
+
+The bytes differ from the reference build, as they do between any two
+toolchains. The behaviour does not: parsing 345 `.odin` files
+(odin-http, ols and odin-lang/examples, the pinned checkouts used for the
+measurements above) with both wasm files and comparing the s-expressions gave
+**345 of 345 identical trees**, including the 25 files that contain an ERROR
+node (the same gaps, at the same places). So a hash comparison against the
+reference build is the wrong check for a rebuild; compare the sources' hashes
+and the trees.
+
 ## Upstreaming
 
 Nothing sent. All three gaps above are worth an upstream issue — the CRLF one
 especially, since `odinfmt` generates the construct, a Windows checkout is where
 it lands, and it is the single largest cause of parse failure measured here.
 None is patched here, so `tree-sitter build --wasm` on tag `v1.3.0` reproduces
-the vendored grammar exactly.
+the grammar's behaviour (the bytes depend on the toolchain, see above).
